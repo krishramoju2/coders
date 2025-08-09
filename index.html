@@ -1,426 +1,601 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" >
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CareerOS — Local KB Only (No API)</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<style>
-  .bubble { display:inline-block; padding:.5rem .75rem; border-radius:12px; max-width:78%; word-break:break-word; }
-  .msg-user{ text-align:right } .msg-ai{ text-align:left }
-  body { -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
-  @media (max-width:640px){ .md\:flex-1{ width:100% } .md\:flex{ flex-direction:column } }
-  /* New style for analytics panel */
-  #analyticsPanel div { margin-bottom: 0.5rem; }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CareerOS — Local KB Only (No API)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* General bubble chat style */
+    .bubble {
+      display: inline-block;
+      padding: 0.5rem 0.75rem;
+      border-radius: 12px;
+      max-width: 78%;
+      word-break: break-word;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.4;
+    }
+    .msg-user {
+      text-align: right;
+    }
+    .msg-ai {
+      text-align: left;
+    }
+    body {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue",
+        sans-serif;
+      background-color: #f8fafc; /* Tailwind slate-50 */
+      color: #0f172a; /* Tailwind slate-900 */
+      margin: 0;
+    }
+
+    /* Responsive tweaks */
+    @media (max-width: 640px) {
+      .md\:flex-1 {
+        width: 100%;
+      }
+      .md\:flex {
+        flex-direction: column;
+      }
+    }
+
+    /* Analytics panel style */
+    #analyticsPanel div {
+      margin-bottom: 0.5rem;
+    }
+
+    /* Scrollbar for chat */
+    #chatBox {
+      scrollbar-width: thin;
+      scrollbar-color: #94a3b8 #e2e8f0;
+    }
+    #chatBox::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    #chatBox::-webkit-scrollbar-track {
+      background: #e2e8f0;
+      border-radius: 8px;
+    }
+    #chatBox::-webkit-scrollbar-thumb {
+      background-color: #94a3b8;
+      border-radius: 8px;
+      border: 2px solid #e2e8f0;
+    }
+
+    /* Buttons */
+    button {
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    button:hover:not(:disabled) {
+      background-color: #2563eb; /* Tailwind blue-600 hover */
+      color: white;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Inputs */
+    input, select, textarea {
+      font-family: inherit;
+      font-size: 1rem;
+      border: 1px solid #cbd5e1; /* Tailwind slate-300 */
+      transition: border-color 0.2s ease;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #2563eb; /* Tailwind blue-600 */
+      box-shadow: 0 0 0 3px rgb(59 130 246 / 0.3);
+    }
+
+    /* Modal styles */
+    #modal, #respModal {
+      z-index: 9999;
+    }
+  </style>
 </head>
-<body class="antialiased bg-slate-50 text-slate-900">
-<div class="min-h-screen flex items-center justify-center p-4">
-  <div id="app" class="w-full max-w-4xl bg-white shadow rounded-lg overflow-hidden">
-    <header class="flex items-center justify-between p-4 border-b">
-      <h1 class="text-lg font-semibold">CareerOS — Local Prompt → Response DB</h1>
-      <div class="flex gap-2 items-center">
-        <select id="advisor" class="px-2 py-1 border rounded text-sm">
-          <option>Resume Builder</option>
-          <option>Interview Prep</option>
-          <option>Career Path</option>
-          <option>Upskilling Guide</option>
-          <option>College Abroad</option>
-        </select>
-        <button id="export" class="px-2 py-1 border rounded text-sm">Export JSON</button>
-        <button id="clearDB" class="px-2 py-1 border rounded text-sm">Clear DB</button>
+<body>
+  <div class="min-h-screen flex items-center justify-center p-6">
+    <div id="app" class="w-full max-w-5xl bg-white shadow-lg rounded-lg overflow-hidden flex flex-col">
+      <header class="flex items-center justify-between p-6 border-b border-slate-200 bg-slate-100">
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900">CareerOS — Local Prompt → Response DB</h1>
+        <div class="flex gap-3 items-center">
+          <select id="advisor" class="px-3 py-2 border rounded text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-600">
+            <option>Resume Builder</option>
+            <option>Interview Prep</option>
+            <option>Career Path</option>
+            <option>Upskilling Guide</option>
+            <option>College Abroad</option>
+          </select>
+          <button id="export" class="px-4 py-2 border border-blue-600 rounded text-blue-600 font-semibold hover:bg-blue-600 hover:text-white transition">Export JSON</button>
+          <button id="clearDB" class="px-4 py-2 border border-red-600 rounded text-red-600 font-semibold hover:bg-red-600 hover:text-white transition">Clear DB</button>
+        </div>
+      </header>
+
+      <main class="md:flex flex-grow overflow-hidden">
+        <!-- Left main section -->
+        <section class="md:flex-1 p-6 flex flex-col">
+          <div class="mb-4">
+            <div id="samples" class="flex flex-wrap gap-2 text-sm"></div>
+          </div>
+
+          <div id="chatBox" class="flex-grow border rounded p-4 overflow-y-auto bg-slate-50 shadow-inner"></div>
+
+          <div class="mt-4 flex gap-3">
+            <input
+              id="input"
+              class="flex-grow border rounded px-4 py-3 text-base placeholder:text-slate-400 focus:ring-2 focus:ring-blue-600"
+              placeholder="Ask your advisor..."
+              autocomplete="off"
+              spellcheck="false"
+              aria-label="Prompt input"
+            />
+            <button id="send" class="bg-blue-600 text-white px-6 py-3 rounded font-semibold shadow hover:bg-blue-700 transition" aria-label="Send prompt">
+              Send
+            </button>
+          </div>
+
+          <div class="mt-3 flex justify-between text-xs text-slate-500">
+            <div>Mode: <strong id="modeLabel">Local KB only</strong></div>
+            <div id="status" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <!-- Sidebar -->
+        <aside class="w-full md:w-96 border-l p-6 bg-slate-50 flex flex-col justify-between">
+          <div>
+            <h3 class="font-semibold text-lg mb-4 text-slate-800">KB Stats</h3>
+            <div class="text-sm space-y-3 mb-6">
+              <div>Total stored pairs: <strong id="pairs">0</strong></div>
+              <div>Distinct prompts: <strong id="distinct">0</strong></div>
+            </div>
+
+            <h4 class="font-semibold mb-3 text-slate-700">Quick Actions</h4>
+            <div class="flex flex-col gap-3 mb-6">
+              <button id="showAll" class="px-3 py-2 border rounded text-sm bg-white hover:bg-blue-50 transition">Show all stored pairs</button>
+              <button id="suggest" class="px-3 py-2 border rounded text-sm bg-white hover:bg-blue-50 transition">Suggest sample prompts</button>
+            </div>
+
+            <hr class="my-6 border-slate-300" />
+
+            <h3 class="font-semibold text-lg mb-4 text-slate-800">Data Analytics</h3>
+            <div id="analyticsPanel" class="text-sm text-slate-700 space-y-2">
+              <div>Total queries this session: <strong id="totalQueries">0</strong></div>
+              <div>Average prompt length: <strong id="avgPromptLength">0</strong> characters</div>
+              <div>Most frequent prompt: <strong id="mostFreqPrompt">N/A</strong></div>
+              <div>Number of distinct advisors used: <strong id="distinctAdvisors">0</strong></div>
+              <div>Prompts by advisor:</div>
+              <ul id="promptsByAdvisor" class="list-disc list-inside text-xs ml-4 min-h-[3rem]"></ul>
+            </div>
+          </div>
+
+          <p class="text-xs text-slate-500 mt-6">
+            This version stores answers locally. When a prompt is unknown you'll be asked to type the assistant's reply and save it into the KB.
+          </p>
+        </aside>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal: list -->
+  <div
+    id="modal"
+    class="fixed inset-0 bg-black/40 hidden items-center justify-center p-6"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modalTitle"
+  >
+    <div
+      class="bg-white w-full max-w-3xl rounded shadow p-6 max-h-[80vh] overflow-auto"
+      tabindex="-1"
+    >
+      <div class="flex justify-between items-center mb-4">
+        <h4 id="modalTitle" class="font-semibold text-lg">Stored Prompt → Response Pairs</h4>
+        <button
+          id="closeModal"
+          class="px-3 py-1 border rounded text-sm hover:bg-slate-100 transition"
+          aria-label="Close modal"
+        >
+          Close
+        </button>
       </div>
-    </header>
-
-    <main class="md:flex">
-      <section class="md:flex-1 p-4">
-        <div class="mb-2">
-          <div id="samples" class="flex flex-wrap gap-2 text-sm"></div>
-        </div>
-
-        <div id="chatBox" class="border rounded p-3 h-72 overflow-y-auto bg-slate-50"></div>
-
-        <div class="mt-3 flex gap-2">
-          <input id="input" class="flex-1 border rounded px-3 py-2" placeholder="Ask your advisor..." />
-          <button id="send" class="bg-blue-600 text-white px-4 rounded">Send</button>
-        </div>
-
-        <div class="mt-2 text-xs text-slate-600 flex justify-between">
-          <div>Mode: <strong id="modeLabel">Local KB only</strong></div>
-          <div id="status"></div>
-        </div>
-      </section>
-
-      <aside class="w-full md:w-96 border-l p-4 bg-slate-50">
-        <h3 class="font-medium mb-2">KB Stats</h3>
-        <div class="text-sm space-y-2">
-          <div>Total stored pairs: <strong id="pairs">0</strong></div>
-          <div>Distinct prompts: <strong id="distinct">0</strong></div>
-        </div>
-        <hr class="my-3" />
-        <h4 class="font-medium">Quick actions</h4>
-        <div class="mt-2 flex flex-col gap-2">
-          <button id="showAll" class="px-2 py-1 border rounded text-sm">Show all stored pairs</button>
-          <button id="suggest" class="px-2 py-1 border rounded text-sm">Suggest sample prompts</button>
-        </div>
-        <hr class="my-3" />
-
-        <!-- NEW Data Analytics panel -->
-        <h3 class="font-medium mb-2">Data Analytics</h3>
-        <div id="analyticsPanel" class="text-sm text-slate-700">
-          <div>Total queries this session: <strong id="totalQueries">0</strong></div>
-          <div>Average prompt length: <strong id="avgPromptLength">0</strong> characters</div>
-          <div>Most frequent prompt: <strong id="mostFreqPrompt">N/A</strong></div>
-          <div>Number of distinct advisors used: <strong id="distinctAdvisors">0</strong></div>
-          <div>Prompts by advisor:</div>
-          <ul id="promptsByAdvisor" class="list-disc list-inside text-xs"></ul>
-        </div>
-
-        <div class="text-xs text-slate-500 mt-3">This version stores answers locally. When a prompt is unknown you'll be asked to type the assistant's reply and save it into the KB.</div>
-      </aside>
-    </main>
-  </div>
-</div>
-
-<!-- Modal: list -->
-<div id="modal" class="fixed inset-0 bg-black/40 hidden items-center justify-center p-4">
-  <div class="bg-white w-full max-w-2xl rounded shadow p-4 max-h-[80vh] overflow-auto">
-    <div class="flex justify-between items-center mb-2">
-      <h4 class="font-medium">Stored Prompt → Response Pairs</h4>
-      <button id="closeModal" class="px-2 py-1 border rounded text-sm">Close</button>
-    </div>
-    <div id="pairsList" class="text-sm space-y-3"></div>
-  </div>
-</div>
-
-<!-- Modal: add response for unknown prompt -->
-<div id="respModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center p-4">
-  <div class="bg-white w-full max-w-lg rounded shadow p-4">
-    <h4 class="font-medium mb-2">No saved response — add one</h4>
-    <div class="text-xs text-slate-600 mb-2" id="respMeta"></div>
-    <textarea id="respInput" class="w-full border rounded p-2" rows="8" placeholder="Type the assistant's reply here..."></textarea>
-    <div class="mt-3 flex justify-end gap-2">
-      <button id="respCancel" class="px-3 py-1 border rounded text-sm">Cancel</button>
-      <button id="respSave" class="px-3 py-1 bg-green-600 text-white rounded text-sm">Save & show</button>
+      <div id="pairsList" class="text-sm space-y-4"></div>
     </div>
   </div>
-</div>
 
-<script>
-(() => {
-  const KEY = 'careeros_pairs_v1';
-  let DB = JSON.parse(localStorage.getItem(KEY) || '{}');
+  <!-- Modal: add response for unknown prompt -->
+  <div
+    id="respModal"
+    class="fixed inset-0 bg-black/40 hidden items-center justify-center p-6"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="respModalTitle"
+  >
+    <div
+      class="bg-white w-full max-w-lg rounded shadow p-6"
+      tabindex="-1"
+    >
+      <h4 id="respModalTitle" class="font-semibold text-lg mb-3">No saved response — add one</h4>
+      <div class="text-xs text-slate-600 mb-4" id="respMeta"></div>
+      <textarea
+        id="respInput"
+        class="w-full border rounded p-3 text-sm resize-y focus:ring-2 focus:ring-blue-600"
+        rows="8"
+        placeholder="Type the assistant's reply here..."
+        aria-label="Response input"
+      ></textarea>
+      <div class="mt-4 flex justify-end gap-3">
+        <button
+          id="respCancel"
+          class="px-4 py-2 border rounded text-sm hover:bg-slate-100 transition"
+        >
+          Cancel
+        </button>
+        <button
+          id="respSave"
+          class="px-4 py-2 bg-green-600 text-white rounded text-sm font-semibold hover:bg-green-700 transition"
+        >
+          Save &amp; show
+        </button>
+      </div>
+    </div>
+  </div>
 
-  // New runtime tracking variables
-  let sessionQueries = 0;
-  const sessionPrompts = [];
-  const sessionAdvisorsUsed = new Set();
+  <script>
+    (() => {
+      const KEY = 'careeros_pairs_v1';
+      let DB = JSON.parse(localStorage.getItem(KEY) || '{}');
 
-  const advisorSel = document.getElementById('advisor');
-  const samplesEl = document.getElementById('samples');
-  const chatBox = document.getElementById('chatBox');
-  const input = document.getElementById('input');
-  const sendBtn = document.getElementById('send');
-  const statusEl = document.getElementById('status');
-  const pairsCountEl = document.getElementById('pairs');
-  const distinctEl = document.getElementById('distinct');
-  const exportBtn = document.getElementById('export');
-  const clearDBBtn = document.getElementById('clearDB');
-  const showAllBtn = document.getElementById('showAll');
-  const modal = document.getElementById('modal');
-  const pairsList = document.getElementById('pairsList');
-  const closeModal = document.getElementById('closeModal');
-  const suggestBtn = document.getElementById('suggest');
+      // New runtime tracking variables
+      let sessionQueries = 0;
+      const sessionPrompts = [];
+      const sessionAdvisorsUsed = new Set();
 
-  const respModal = document.getElementById('respModal');
-  const respInput = document.getElementById('respInput');
-  const respMeta = document.getElementById('respMeta');
-  const respSave = document.getElementById('respSave');
-  const respCancel = document.getElementById('respCancel');
+      const advisorSel = document.getElementById('advisor');
+      const samplesEl = document.getElementById('samples');
+      const chatBox = document.getElementById('chatBox');
+      const input = document.getElementById('input');
+      const sendBtn = document.getElementById('send');
+      const statusEl = document.getElementById('status');
+      const pairsCountEl = document.getElementById('pairs');
+      const distinctEl = document.getElementById('distinct');
+      const exportBtn = document.getElementById('export');
+      const clearDBBtn = document.getElementById('clearDB');
+      const showAllBtn = document.getElementById('showAll');
+      const modal = document.getElementById('modal');
+      const pairsList = document.getElementById('pairsList');
+      const closeModal = document.getElementById('closeModal');
+      const suggestBtn = document.getElementById('suggest');
 
-  // Analytics DOM elements
-  const totalQueriesEl = document.getElementById('totalQueries');
-  const avgPromptLengthEl = document.getElementById('avgPromptLength');
-  const mostFreqPromptEl = document.getElementById('mostFreqPrompt');
-  const distinctAdvisorsEl = document.getElementById('distinctAdvisors');
-  const promptsByAdvisorEl = document.getElementById('promptsByAdvisor');
+      const respModal = document.getElementById('respModal');
+      const respInput = document.getElementById('respInput');
+      const respMeta = document.getElementById('respMeta');
+      const respSave = document.getElementById('respSave');
+      const respCancel = document.getElementById('respCancel');
 
-  const SAMPLE_PROMPTS = {
-    "Resume Builder": [
-      "Rewrite this 2-line summary for a CS grad with ML internship.",
-      "5 bullet points for a fintech software intern role.",
-      "How to phrase a project about dataset cleaning?",
-      "How to describe teamwork in a software project?",
-      "Best way to highlight leadership experience on a resume.",
-      "How to write an objective statement for a data scientist role?",
-      "Tips for writing a cover letter for a tech internship.",
-      "Example summary for a recent CS graduate.",
-      "How to present skills learned during an internship.",
-      "What keywords should I use for an AI research resume?"
-    ],
-    "Interview Prep": [
-      "Mock me: behavioral question for a PM role.",
-      "Ask a system design question for a small service.",
-      "How to answer 'Tell me about yourself' for SWE?",
-      "Tips to handle technical questions under pressure.",
-      "Best practices for answering situational interview questions.",
-      "Explain the STAR method with an example.",
-      "How to discuss failures in an interview?",
-      "Questions to ask the interviewer for a data science role.",
-      "How to prepare for coding interviews effectively?",
-      "What are common mistakes to avoid in interviews?"
-    ],
-    "Career Path": [
-      "Roadmap from QA to SRE in 18 months.",
-      "Roles I can apply for with Python+SQL.",
-      "How to move from sales to product management?",
-      "Career advice for switching from academia to industry.",
-      "Skills needed to become a cloud engineer.",
-      "Steps to advance from junior to senior developer.",
-      "How to build a personal brand in tech?",
-      "Tips for networking in the software industry.",
-      "What certifications help in cybersecurity?",
-      "How to choose between startup and corporate jobs?"
-    ],
-    "Upskilling Guide": [
-      "Free resources to learn data viz with Python.",
-      "6-month plan to learn cloud fundamentals.",
-      "Small projects to practice NLP basics.",
-      "How to get started with machine learning?",
-      "Best online courses for web development.",
-      "Learning path for becoming a full-stack developer.",
-      "Recommended books for learning algorithms.",
-      "How to practice coding daily effectively.",
-      "Top platforms for coding challenges.",
-      "Guide to learning containerization with Docker."
-    ],
-    "College Abroad": [
-      "Top affordable MS programs in Canada for CS.",
-      "Scholarships in Germany for international masters.",
-      "Steps to apply for student visa in Australia.",
-      "How to choose a university for graduate studies.",
-      "Tips for writing a statement of purpose.",
-      "Best countries for affordable education.",
-      "How to prepare for GRE and TOEFL exams.",
-      "Scholarship opportunities for Indian students.",
-      "Differences between MS in USA and Europe.",
-      "How to find accommodation as an international student."
-    ]
-  };
+      // Analytics DOM elements
+      const totalQueriesEl = document.getElementById('totalQueries');
+      const avgPromptLengthEl = document.getElementById('avgPromptLength');
+      const mostFreqPromptEl = document.getElementById('mostFreqPrompt');
+      const distinctAdvisorsEl = document.getElementById('distinctAdvisors');
+      const promptsByAdvisorEl = document.getElementById('promptsByAdvisor');
 
-  let pendingKey = null; // holds adv||prompt when waiting for manual response
-
-  // Helper: update analytics panel
-  function updateAnalytics() {
-    totalQueriesEl.textContent = sessionQueries;
-
-    if(sessionQueries === 0) {
-      avgPromptLengthEl.textContent = '0';
-      mostFreqPromptEl.textContent = 'N/A';
-      distinctAdvisorsEl.textContent = '0';
-      promptsByAdvisorEl.innerHTML = '<li>N/A</li>';
-      return;
-    }
-
-    // Average prompt length
-    let totalLength = sessionPrompts.reduce((sum, p) => sum + p.prompt.length, 0);
-    avgPromptLengthEl.textContent = (totalLength / sessionQueries).toFixed(1);
-
-    // Most frequent prompt (session)
-    const freqMap = {};
-    sessionPrompts.forEach(({prompt}) => {
-      freqMap[prompt] = (freqMap[prompt]||0) + 1;
-    });
-    let mostFreq = null;
-    let maxCount = 0;
-    for(const p in freqMap) {
-      if(freqMap[p] > maxCount) {
-        mostFreq = p;
-        maxCount = freqMap[p];
-      }
-    }
-    mostFreqPromptEl.textContent = mostFreq ? `${mostFreq} (${maxCount} times)` : 'N/A';
-
-    // Distinct advisors used in session
-    distinctAdvisorsEl.textContent = sessionAdvisorsUsed.size;
-
-    // Prompts count by advisor
-    const advisorCount = {};
-    sessionPrompts.forEach(({advisor}) => {
-      advisorCount[advisor] = (advisorCount[advisor]||0) + 1;
-    });
-
-    // Clear and populate list
-    promptsByAdvisorEl.innerHTML = '';
-    if(Object.keys(advisorCount).length === 0){
-      promptsByAdvisorEl.innerHTML = '<li>N/A</li>';
-    } else {
-      for(const adv in advisorCount) {
-        const li = document.createElement('li');
-        li.textContent = `${adv}: ${advisorCount[adv]} prompt${advisorCount[adv] > 1 ? 's' : ''}`;
-        promptsByAdvisorEl.appendChild(li);
-      }
-    }
-  }
-
-  function saveDB(){ localStorage.setItem(KEY, JSON.stringify(DB)); updateStats(); }
-  function updateStats(){
-    const keys = Object.keys(DB);
-    pairsCountEl.textContent = keys.length;
-    distinctEl.textContent = new Set(keys.map(k=>k.split('||')[1])).size;
-  }
-
-  function renderSamples(){
-    samplesEl.innerHTML = '';
-    const adv = advisorSel.value;
-    (SAMPLE_PROMPTS[adv]||[]).forEach(p=>{
-      const b = document.createElement('button');
-      b.className = 'px-2 py-1 border rounded text-xs bg-white';
-      b.textContent = p;
-      b.onclick = ()=> { input.value = p; input.focus(); };
-      samplesEl.appendChild(b);
-    });
-  }
-
-  function showMessage(who, text, meta=''){
-    const outer = document.createElement('div');
-    outer.className = who === 'user' ? 'msg-user mb-2 flex justify-end' : 'msg-ai mb-2 flex justify-start';
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble ' + (who==='user' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-900');
-    bubble.innerHTML = `<div class="text-sm">${escapeHtml(text)}</div>` + (meta?`<div class="text-xs mt-1 text-slate-500">${escapeHtml(meta)}</div>`:'');
-    outer.appendChild(bubble);
-    chatBox.appendChild(outer);
-    chatBox.scrollTop = chatBox.scrollHeight;
-  }
-
-  function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
-
-  // When prompt unknown: open modal to let user type assistant's reply and save it
-  function openRespModal(key, adv, prompt){
-    pendingKey = key;
-    respInput.value = '';
-    respMeta.textContent = `Advisor: ${adv} — Prompt: "${prompt}"`;
-    respModal.classList.remove('hidden');
-    respModal.classList.add('flex');
-    respInput.focus();
-  }
-
-  respCancel.addEventListener('click', ()=>{
-    pendingKey = null;
-    respModal.classList.add('hidden');
-    respModal.classList.remove('flex');
-  });
-
-  respSave.addEventListener('click', ()=>{
-    if(!pendingKey) return;
-    const v = respInput.value.trim();
-    if(!v){ alert('Please type a response to save.'); respInput.focus(); return; }
-    DB[pendingKey] = v;
-    saveDB();
-    // show saved response in chat
-    const [adv, prompt] = pendingKey.split('||');
-    showMessage('ai', v, adv + ' (manually saved)');
-    pendingKey = null;
-    respModal.classList.add('hidden');
-    respModal.classList.remove('flex');
-  });
-
-  async function send(){
-    const prompt = input.value.trim();
-    if(!prompt) return;
-    const adv = advisorSel.value;
-    const key = adv + '||' + prompt;
-    showMessage('user', prompt, adv);
-    input.value = '';
-    statusEl.textContent = 'Checking KB...';
-    sendBtn.disabled = true;
-
-    // Update session analytics data
-    sessionQueries++;
-    sessionPrompts.push({prompt, advisor: adv});
-    sessionAdvisorsUsed.add(adv);
-
-    updateAnalytics();
-
-    if(DB[key]){
-      // known — return stored answer
-      await new Promise(r=>setTimeout(r,200)); // small delay for UX
-      showMessage('ai', DB[key], adv + ' (from KB)');
-    } else {
-      // unknown — ask the user to provide the assistant reply
-      await new Promise(r=>setTimeout(r,200));
-      openRespModal(key, adv, prompt);
-    }
-
-    statusEl.textContent = '';
-    sendBtn.disabled = false;
-  }
-
-  // Export DB as JSON file
-  exportBtn.addEventListener('click', ()=>{
-    const data = JSON.stringify(DB, null, 2);
-    const blob = new Blob([data], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'careeros_pairs.json'; a.click();
-    URL.revokeObjectURL(url);
-  });
-
-  // Clear DB
-  clearDBBtn.addEventListener('click', ()=>{
-    if(!confirm('Clear stored prompt-response DB?')) return;
-    DB = {};
-    saveDB();
-    chatBox.innerHTML = '';
-    alert('DB cleared.');
-  });
-
-  // Show all stored pairs
-  showAllBtn.addEventListener('click', ()=>{
-    pairsList.innerHTML = '';
-    const keys = Object.keys(DB).sort();
-    if(!keys.length){ pairsList.textContent = 'No pairs stored yet.'; modal.classList.remove('hidden'); modal.classList.add('flex'); return; }
-    keys.forEach(k=>{
-      const [adv, prompt] = k.split('||');
-      const div = document.createElement('div');
-      div.className = 'p-2 border rounded';
-      div.innerHTML = `<div class="text-xs text-slate-500">${escapeHtml(adv)}</div>
-                       <div class="font-medium">${escapeHtml(prompt)}</div>
-                       <div class="text-sm text-slate-700 mt-1">${escapeHtml(DB[k])}</div>
-                       <div class="mt-1 text-right"><button class="load btn text-xs px-2 py-1 border rounded">Use</button> <button class="del btn text-xs px-2 py-1 border rounded">Delete</button></div>`;
-      div.querySelector('.load').onclick = ()=>{
-        input.value = prompt; input.focus();
-        modal.classList.add('hidden'); modal.classList.remove('flex');
+      const SAMPLE_PROMPTS = {
+        "Resume Builder": [
+          "Rewrite this 2-line summary for a CS grad with ML internship.",
+          "5 bullet points for a fintech software intern role.",
+          "How to phrase a project about dataset cleaning?",
+          "How to describe teamwork in a software project?",
+          "Best way to highlight leadership experience on a resume.",
+          "How to write an objective statement for a data scientist role?",
+          "Tips for writing a cover letter for a tech internship.",
+          "Example summary for a recent CS graduate.",
+          "How to present skills learned during an internship.",
+          "What keywords should I use for an AI research resume?"
+        ],
+        "Interview Prep": [
+          "Mock me: behavioral question for a PM role.",
+          "Ask a system design question for a small service.",
+          "How to answer 'Tell me about yourself' for SWE?",
+          "Tips to handle technical questions under pressure.",
+          "Best practices for answering situational interview questions.",
+          "Explain the STAR method with an example.",
+          "How to discuss failures in an interview?",
+          "Questions to ask the interviewer for a data science role.",
+          "How to prepare for coding interviews effectively?",
+          "What are common mistakes to avoid in interviews?"
+        ],
+        "Career Path": [
+          "Roadmap from QA to SRE in 18 months.",
+          "Roles I can apply for with Python+SQL.",
+          "How to move from sales to product management?",
+          "Career advice for switching from academia to industry.",
+          "Skills needed to become a cloud engineer.",
+          "Steps to advance from junior to senior developer.",
+          "How to build a personal brand in tech?",
+          "Tips for networking in the software industry.",
+          "What certifications help in cybersecurity?",
+          "How to choose between startup and corporate jobs?"
+        ],
+        "Upskilling Guide": [
+          "Free resources to learn data viz with Python.",
+          "6-month plan to learn cloud fundamentals.",
+          "Small projects to practice NLP basics.",
+          "How to get started with machine learning?",
+          "Best online courses for web development.",
+          "Learning path for becoming a full-stack developer.",
+          "Recommended books for learning algorithms.",
+          "How to practice coding daily effectively.",
+          "Top platforms for coding challenges.",
+          "Guide to learning containerization with Docker."
+        ],
+        "College Abroad": [
+          "Top affordable MS programs in Canada for CS.",
+          "Scholarships in Germany for international masters.",
+          "Steps to apply for student visa in Australia.",
+          "How to choose a university for graduate studies.",
+          "Tips for writing a statement of purpose.",
+          "Best countries for affordable education.",
+          "How to prepare for GRE and TOEFL exams.",
+          "Scholarship opportunities for Indian students.",
+          "Differences between MS in USA and Europe.",
+          "How to find accommodation as an international student."
+        ]
       };
-      div.querySelector('.del').onclick = ()=>{
-        if(!confirm('Delete this pair?')) return;
-        delete DB[k];
+
+      let pendingKey = null; // holds adv||prompt when waiting for manual response
+
+      // Helper: update analytics panel
+      function updateAnalytics() {
+        totalQueriesEl.textContent = sessionQueries;
+
+        if (sessionQueries === 0) {
+          avgPromptLengthEl.textContent = '0';
+          mostFreqPromptEl.textContent = 'N/A';
+          distinctAdvisorsEl.textContent = '0';
+          promptsByAdvisorEl.innerHTML = '<li>N/A</li>';
+          return;
+        }
+
+        // Average prompt length
+        let totalLength = sessionPrompts.reduce((sum, p) => sum + p.prompt.length, 0);
+        avgPromptLengthEl.textContent = (totalLength / sessionQueries).toFixed(1);
+
+        // Most frequent prompt (session)
+        const freqMap = {};
+        sessionPrompts.forEach(({ prompt }) => {
+          freqMap[prompt] = (freqMap[prompt] || 0) + 1;
+        });
+        let mostFreq = null;
+        let maxCount = 0;
+        for (const p in freqMap) {
+          if (freqMap[p] > maxCount) {
+            mostFreq = p;
+            maxCount = freqMap[p];
+          }
+        }
+        mostFreqPromptEl.textContent = mostFreq ? `${mostFreq} (${maxCount} times)` : 'N/A';
+
+        // Distinct advisors used in session
+        distinctAdvisorsEl.textContent = sessionAdvisorsUsed.size;
+
+        // Prompts count by advisor
+        const advisorCount = {};
+        sessionPrompts.forEach(({ advisor }) => {
+          advisorCount[advisor] = (advisorCount[advisor] || 0) + 1;
+        });
+
+        // Clear and populate list
+        promptsByAdvisorEl.innerHTML = '';
+        if (Object.keys(advisorCount).length === 0) {
+          promptsByAdvisorEl.innerHTML = '<li>N/A</li>';
+        } else {
+          for (const adv in advisorCount) {
+            const li = document.createElement('li');
+            li.textContent = `${adv}: ${advisorCount[adv]} prompt${advisorCount[adv] > 1 ? 's' : ''}`;
+            promptsByAdvisorEl.appendChild(li);
+          }
+        }
+      }
+
+      function saveDB() {
+        localStorage.setItem(KEY, JSON.stringify(DB));
+        updateStats();
+      }
+      function updateStats() {
+        const keys = Object.keys(DB);
+        pairsCountEl.textContent = keys.length;
+        distinctEl.textContent = new Set(keys.map(k => k.split('||')[1])).size;
+      }
+
+      function renderSamples() {
+        samplesEl.innerHTML = '';
+        const adv = advisorSel.value;
+        (SAMPLE_PROMPTS[adv] || []).forEach(p => {
+          const b = document.createElement('button');
+          b.className = 'px-3 py-1 border rounded text-xs bg-white hover:bg-blue-50 transition';
+          b.textContent = p;
+          b.type = 'button';
+          b.onclick = () => {
+            input.value = p;
+            input.focus();
+          };
+          samplesEl.appendChild(b);
+        });
+      }
+
+      function showMessage(who, text, meta = '') {
+        const outer = document.createElement('div');
+        outer.className = who === 'user' ? 'msg-user mb-3 flex justify-end' : 'msg-ai mb-3 flex justify-start';
+        const bubble = document.createElement('div');
+        bubble.className =
+          'bubble ' + (who === 'user' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-900 shadow');
+        bubble.innerHTML =
+          `<div class="text-sm">${escapeHtml(text)}</div>` +
+          (meta ? `<div class="text-xs mt-1 text-slate-500 italic">${escapeHtml(meta)}</div>` : '');
+        outer.appendChild(bubble);
+        chatBox.appendChild(outer);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      }
+
+      // When prompt unknown: open modal to let user type assistant's reply and save it
+      function openRespModal(key, adv, prompt) {
+        pendingKey = key;
+        respInput.value = '';
+        respMeta.textContent = `Advisor: ${adv} — Prompt: "${prompt}"`;
+        respModal.classList.remove('hidden');
+        respModal.classList.add('flex');
+        respInput.focus();
+      }
+
+      respCancel.addEventListener('click', () => {
+        pendingKey = null;
+        respModal.classList.add('hidden');
+        respModal.classList.remove('flex');
+      });
+
+      respSave.addEventListener('click', () => {
+        if (!pendingKey) return;
+        const v = respInput.value.trim();
+        if (!v) {
+          alert('Please type a response to save.');
+          respInput.focus();
+          return;
+        }
+        DB[pendingKey] = v;
         saveDB();
-        div.remove();
-      };
-      pairsList.appendChild(div);
-    });
-    modal.classList.remove('hidden'); modal.classList.add('flex');
-  });
+        // show saved response in chat
+        const [adv, prompt] = pendingKey.split('||');
+        showMessage('ai', v, adv + ' (manually saved)');
+        pendingKey = null;
+        respModal.classList.add('hidden');
+        respModal.classList.remove('flex');
+      });
 
-  closeModal.addEventListener('click', ()=>{ modal.classList.add('hidden'); modal.classList.remove('flex'); });
+      async function send() {
+        const prompt = input.value.trim();
+        if (!prompt) return;
+        const adv = advisorSel.value;
+        const key = adv + '||' + prompt;
+        showMessage('user', prompt, adv);
+        input.value = '';
+        statusEl.textContent = 'Checking KB...';
+        sendBtn.disabled = true;
 
-  // Suggest sample prompts
-  suggestBtn.addEventListener('click', renderSamples);
+        // Update session analytics data
+        sessionQueries++;
+        sessionPrompts.push({ prompt, advisor: adv });
+        sessionAdvisorsUsed.add(adv);
 
-  // Enter to send
-  input.addEventListener('keydown', e=>{ if(e.key === 'Enter') send(); });
-  sendBtn.addEventListener('click', send);
-  advisorSel.addEventListener('change', renderSamples);
+        updateAnalytics();
 
-  // initial render
-  renderSamples();
-  updateStats();
-  updateAnalytics();
+        if (DB[key]) {
+          // known — return stored answer
+          await new Promise(r => setTimeout(r, 200)); // small delay for UX
+          showMessage('ai', DB[key], adv + ' (from KB)');
+        } else {
+          // unknown — ask the user to provide the assistant reply
+          await new Promise(r => setTimeout(r, 200));
+          openRespModal(key, adv, prompt);
+        }
 
-  // Debug helper (optional): window.__careeros_getDB()
-  window.__careeros_getDB = ()=> JSON.parse(localStorage.getItem(KEY) || '{}');
-})();
-</script>
+        statusEl.textContent = '';
+        sendBtn.disabled = false;
+      }
+
+      // Export DB as JSON file
+      exportBtn.addEventListener('click', () => {
+        const data = JSON.stringify(DB, null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'careeros_pairs.json';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+
+      // Clear DB
+      clearDBBtn.addEventListener('click', () => {
+        if (!confirm('Clear stored prompt-response DB?')) return;
+        DB = {};
+        saveDB();
+        chatBox.innerHTML = '';
+        alert('DB cleared.');
+      });
+
+      // Show all stored pairs
+      showAllBtn.addEventListener('click', () => {
+        pairsList.innerHTML = '';
+        const keys = Object.keys(DB).sort();
+        if (!keys.length) {
+          pairsList.textContent = 'No pairs stored yet.';
+          modal.classList.remove('hidden');
+          modal.classList.add('flex');
+          return;
+        }
+        keys.forEach(k => {
+          const [adv, prompt] = k.split('||');
+          const div = document.createElement('div');
+          div.className = 'p-3 border rounded bg-white shadow-sm';
+          div.innerHTML = `<div class="text-xs text-slate-500">${escapeHtml(adv)}</div>
+                           <div class="font-medium text-slate-900 my-1">${escapeHtml(prompt)}</div>
+                           <div class="text-sm text-slate-700 mt-1 whitespace-pre-wrap">${escapeHtml(DB[k])}</div>
+                           <div class="mt-3 text-right flex justify-end gap-2">
+                             <button class="load btn text-xs px-3 py-1 border rounded hover:bg-blue-50 transition" type="button">Use</button>
+                             <button class="del btn text-xs px-3 py-1 border rounded hover:bg-red-50 transition" type="button">Delete</button>
+                           </div>`;
+          div.querySelector('.load').onclick = () => {
+            input.value = prompt;
+            input.focus();
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+          };
+          div.querySelector('.del').onclick = () => {
+            if (!confirm('Delete this pair?')) return;
+            delete DB[k];
+            saveDB();
+            div.remove();
+          };
+          pairsList.appendChild(div);
+        });
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      });
+
+      closeModal.addEventListener('click', () => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      });
+
+      // Suggest sample prompts
+      suggestBtn.addEventListener('click', renderSamples);
+
+      // Enter to send
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') send();
+      });
+      sendBtn.addEventListener('click', send);
+      advisorSel.addEventListener('change', renderSamples);
+
+      // Initial render
+      renderSamples();
+      updateStats();
+      updateAnalytics();
+
+      // Debug helper (optional): window.__careeros_getDB()
+      window.__careeros_getDB = () => JSON.parse(localStorage.getItem(KEY) || '{}');
+    })();
+  </script>
 </body>
 </html>
