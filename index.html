@@ -1,39 +1,91 @@
 <!doctype html>
-<html lang="en" >
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>CareerOS — Local KB Only (No API)</title>
+  <title>CareerOS — Local Prompt → Response DB with Visual Design</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* General bubble chat style */
+    /* Chat bubble base */
     .bubble {
       display: inline-block;
       padding: 0.5rem 0.75rem;
       border-radius: 12px;
       max-width: 78%;
       word-break: break-word;
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      position: relative;
       line-height: 1.4;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      animation: fadeIn 0.3s ease forwards;
     }
+    /* User message container */
     .msg-user {
-      text-align: right;
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 1rem;
     }
+    /* AI message container */
     .msg-ai {
-      text-align: left;
+      display: flex;
+      justify-content: flex-start;
+      margin-bottom: 1rem;
     }
+
+    /* User bubble style */
+    .bubble.user {
+      background-color: #2563eb; /* blue-600 */
+      color: white;
+      box-shadow: 0 0 8px 2px rgba(37, 99, 235, 0.6);
+    }
+    /* AI bubble style */
+    .bubble.ai {
+      background-color: #ecfdf5; /* green-50 */
+      color: #065f46; /* green-800 */
+      box-shadow: 0 0 10px 3px rgba(5, 150, 105, 0.5);
+    }
+
+    /* Badge style */
+    .badge {
+      position: absolute;
+      top: -1.2rem;
+      left: 0.5rem;
+      font-size: 0.6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.1rem 0.5rem;
+      border-radius: 8px;
+      user-select: none;
+      pointer-events: none;
+      letter-spacing: 0.05em;
+    }
+    .badge.user {
+      background-color: #3b82f6; /* blue-500 */
+      color: white;
+    }
+    .badge.ai {
+      background-color: #10b981; /* green-500 */
+      color: white;
+    }
+
+    /* fadeIn animation for messages */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Overall page style */
     body {
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
         Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue",
         sans-serif;
-      background-color: #f8fafc; /* Tailwind slate-50 */
-      color: #0f172a; /* Tailwind slate-900 */
+      background-color: #f8fafc; /* slate-50 */
+      color: #0f172a; /* slate-900 */
       margin: 0;
     }
 
-    /* Responsive tweaks */
+    /* Responsive layout */
     @media (max-width: 640px) {
       .md\:flex-1 {
         width: 100%;
@@ -43,12 +95,12 @@
       }
     }
 
-    /* Analytics panel style */
+    /* Analytics panel margin */
     #analyticsPanel div {
       margin-bottom: 0.5rem;
     }
 
-    /* Scrollbar for chat */
+    /* Chat box scrollbar styling */
     #chatBox {
       scrollbar-width: thin;
       scrollbar-color: #94a3b8 #e2e8f0;
@@ -67,12 +119,12 @@
       border: 2px solid #e2e8f0;
     }
 
-    /* Buttons */
+    /* Button hover */
     button {
       transition: background-color 0.2s ease, color 0.2s ease;
     }
     button:hover:not(:disabled) {
-      background-color: #2563eb; /* Tailwind blue-600 hover */
+      background-color: #2563eb; /* blue-600 */
       color: white;
       cursor: pointer;
     }
@@ -81,22 +133,35 @@
       cursor: not-allowed;
     }
 
-    /* Inputs */
+    /* Input and select focus */
     input, select, textarea {
       font-family: inherit;
       font-size: 1rem;
-      border: 1px solid #cbd5e1; /* Tailwind slate-300 */
+      border: 1px solid #cbd5e1; /* slate-300 */
       transition: border-color 0.2s ease;
     }
     input:focus, select:focus, textarea:focus {
       outline: none;
-      border-color: #2563eb; /* Tailwind blue-600 */
-      box-shadow: 0 0 0 3px rgb(59 130 246 / 0.3);
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
     }
 
-    /* Modal styles */
+    /* Modal overlay z-index */
     #modal, #respModal {
       z-index: 9999;
+    }
+
+    /* Advisor pill label above input */
+    #advisorLabel {
+      font-weight: 700;
+      background-color: #2563eb; /* blue-600 */
+      color: white;
+      padding: 0.3rem 0.8rem;
+      border-radius: 9999px;
+      display: inline-block;
+      margin-bottom: 0.4rem;
+      font-size: 0.85rem;
+      user-select: none;
     }
   </style>
 </head>
@@ -106,7 +171,7 @@
       <header class="flex items-center justify-between p-6 border-b border-slate-200 bg-slate-100">
         <h1 class="text-2xl font-bold tracking-tight text-slate-900">CareerOS — Local Prompt → Response DB</h1>
         <div class="flex gap-3 items-center">
-          <select id="advisor" class="px-3 py-2 border rounded text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-600">
+          <select id="advisor" class="px-3 py-2 border rounded text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-600" aria-label="Select advisor">
             <option>Resume Builder</option>
             <option>Interview Prep</option>
             <option>Career Path</option>
@@ -125,9 +190,12 @@
             <div id="samples" class="flex flex-wrap gap-2 text-sm"></div>
           </div>
 
-          <div id="chatBox" class="flex-grow border rounded p-4 overflow-y-auto bg-slate-50 shadow-inner"></div>
+          <div id="chatBox" class="flex-grow border rounded p-4 overflow-y-auto bg-slate-50 shadow-inner" role="log" aria-live="polite" aria-relevant="additions"></div>
 
-          <div class="mt-4 flex gap-3">
+          <!-- Large visible advisor label above input -->
+          <div id="advisorLabel" aria-live="polite" aria-atomic="true"></div>
+
+          <div class="mt-2 flex gap-3">
             <input
               id="input"
               class="flex-grow border rounded px-4 py-3 text-base placeholder:text-slate-400 focus:ring-2 focus:ring-blue-600"
@@ -249,14 +317,15 @@
 
   <script>
     (() => {
-      const KEY = 'careeros_pairs_v1';
-      let DB = JSON.parse(localStorage.getItem(KEY) || '{}');
+      const STORAGE_KEY = 'careeros_pairs_v1';
+      let DB = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
 
-      // New runtime tracking variables
+      // Runtime trackers
       let sessionQueries = 0;
       const sessionPrompts = [];
       const sessionAdvisorsUsed = new Set();
 
+      // DOM elements
       const advisorSel = document.getElementById('advisor');
       const samplesEl = document.getElementById('samples');
       const chatBox = document.getElementById('chatBox');
@@ -286,6 +355,10 @@
       const distinctAdvisorsEl = document.getElementById('distinctAdvisors');
       const promptsByAdvisorEl = document.getElementById('promptsByAdvisor');
 
+      // New advisor label above input
+      const advisorLabel = document.getElementById('advisorLabel');
+
+      // Sample prompts per advisor
       const SAMPLE_PROMPTS = {
         "Resume Builder": [
           "Rewrite this 2-line summary for a CS grad with ML internship.",
@@ -320,281 +393,275 @@
           "Steps to advance from junior to senior developer.",
           "How to build a personal brand in tech?",
           "Tips for networking in the software industry.",
-          "What certifications help in cybersecurity?",
-          "How to choose between startup and corporate jobs?"
+          "What certifications should I pursue for data analytics?",
+          "How to plan a career in AI research?"
         ],
         "Upskilling Guide": [
-          "Free resources to learn data viz with Python.",
-          "6-month plan to learn cloud fundamentals.",
-          "Small projects to practice NLP basics.",
-          "How to get started with machine learning?",
-          "Best online courses for web development.",
-          "Learning path for becoming a full-stack developer.",
-          "Recommended books for learning algorithms.",
-          "How to practice coding daily effectively.",
-          "Top platforms for coding challenges.",
-          "Guide to learning containerization with Docker."
+          "Best online courses for learning React in 2024.",
+          "How to improve SQL skills quickly?",
+          "Resources to learn cloud computing basics.",
+          "Steps to get started with machine learning.",
+          "How to prepare for AWS certification?",
+          "Top free resources to learn Python.",
+          "Tips to stay updated with tech trends.",
+          "How to learn data visualization tools?",
+          "What books to read for software architecture?",
+          "How to practice coding challenges daily?"
         ],
         "College Abroad": [
-          "Top affordable MS programs in Canada for CS.",
-          "Scholarships in Germany for international masters.",
-          "Steps to apply for student visa in Australia.",
-          "How to choose a university for graduate studies.",
-          "Tips for writing a statement of purpose.",
-          "Best countries for affordable education.",
-          "How to prepare for GRE and TOEFL exams.",
-          "Scholarship opportunities for Indian students.",
-          "Differences between MS in USA and Europe.",
-          "How to find accommodation as an international student."
+          "Top US universities for computer science.",
+          "How to apply for scholarships in Canada?",
+          "Tips for writing a Statement of Purpose (SOP).",
+          "Best countries for MS in AI and ML.",
+          "GRE and TOEFL preparation strategies.",
+          "How to get internships while studying abroad?",
+          "Visa application process for UK students.",
+          "Cost of living in Australia for students.",
+          "Work opportunities during studies in Germany.",
+          "How to choose the right course for CS masters?"
         ]
       };
 
-      let pendingKey = null; // holds adv||prompt when waiting for manual response
+      function saveDB() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
+      }
 
-      // Helper: update analytics panel
-      function updateAnalytics() {
+      function updateStats() {
+        const pairsCount = Object.keys(DB).length;
+        pairsCountEl.textContent = pairsCount;
+
+        const distinctPrompts = new Set(Object.keys(DB).map(k => k.split('|')[0])).size;
+        distinctEl.textContent = distinctPrompts;
+
         totalQueriesEl.textContent = sessionQueries;
+        const avgLen = sessionQueries ? Math.round(sessionPrompts.reduce((a,b) => a + b.length, 0) / sessionQueries) : 0;
+        avgPromptLengthEl.textContent = avgLen;
 
-        if (sessionQueries === 0) {
-          avgPromptLengthEl.textContent = '0';
-          mostFreqPromptEl.textContent = 'N/A';
-          distinctAdvisorsEl.textContent = '0';
-          promptsByAdvisorEl.innerHTML = '<li>N/A</li>';
-          return;
-        }
-
-        // Average prompt length
-        let totalLength = sessionPrompts.reduce((sum, p) => sum + p.prompt.length, 0);
-        avgPromptLengthEl.textContent = (totalLength / sessionQueries).toFixed(1);
-
-        // Most frequent prompt (session)
+        // Most frequent prompt
         const freqMap = {};
-        sessionPrompts.forEach(({ prompt }) => {
-          freqMap[prompt] = (freqMap[prompt] || 0) + 1;
-        });
-        let mostFreq = null;
-        let maxCount = 0;
+        for (const p of sessionPrompts) {
+          freqMap[p] = (freqMap[p] || 0) + 1;
+        }
+        let maxCount = 0, mostFreq = 'N/A';
         for (const p in freqMap) {
           if (freqMap[p] > maxCount) {
-            mostFreq = p;
             maxCount = freqMap[p];
+            mostFreq = p;
           }
         }
-        mostFreqPromptEl.textContent = mostFreq ? `${mostFreq} (${maxCount} times)` : 'N/A';
+        mostFreqPromptEl.textContent = mostFreq;
 
-        // Distinct advisors used in session
         distinctAdvisorsEl.textContent = sessionAdvisorsUsed.size;
 
-        // Prompts count by advisor
+        // Prompts by advisor
         const advisorCount = {};
-        sessionPrompts.forEach(({ advisor }) => {
+        for (const pairKey in DB) {
+          const advisor = pairKey.split('|')[1];
           advisorCount[advisor] = (advisorCount[advisor] || 0) + 1;
-        });
-
-        // Clear and populate list
+        }
         promptsByAdvisorEl.innerHTML = '';
-        if (Object.keys(advisorCount).length === 0) {
-          promptsByAdvisorEl.innerHTML = '<li>N/A</li>';
-        } else {
-          for (const adv in advisorCount) {
-            const li = document.createElement('li');
-            li.textContent = `${adv}: ${advisorCount[adv]} prompt${advisorCount[adv] > 1 ? 's' : ''}`;
-            promptsByAdvisorEl.appendChild(li);
-          }
+        for (const [adv, count] of Object.entries(advisorCount)) {
+          const li = document.createElement('li');
+          li.textContent = `${adv}: ${count}`;
+          promptsByAdvisorEl.appendChild(li);
         }
       }
 
-      function saveDB() {
-        localStorage.setItem(KEY, JSON.stringify(DB));
-        updateStats();
-      }
-      function updateStats() {
-        const keys = Object.keys(DB);
-        pairsCountEl.textContent = keys.length;
-        distinctEl.textContent = new Set(keys.map(k => k.split('||')[1])).size;
-      }
+      function createChatBubble(text, isUser, advisorName = '') {
+        const container = document.createElement('div');
+        container.classList.add(isUser ? 'msg-user' : 'msg-ai');
 
-      function renderSamples() {
-        samplesEl.innerHTML = '';
-        const adv = advisorSel.value;
-        (SAMPLE_PROMPTS[adv] || []).forEach(p => {
-          const b = document.createElement('button');
-          b.className = 'px-3 py-1 border rounded text-xs bg-white hover:bg-blue-50 transition';
-          b.textContent = p;
-          b.type = 'button';
-          b.onclick = () => {
-            input.value = p;
-            input.focus();
-          };
-          samplesEl.appendChild(b);
-        });
-      }
-
-      function showMessage(who, text, meta = '') {
-        const outer = document.createElement('div');
-        outer.className = who === 'user' ? 'msg-user mb-3 flex justify-end' : 'msg-ai mb-3 flex justify-start';
         const bubble = document.createElement('div');
-        bubble.className =
-          'bubble ' + (who === 'user' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-900 shadow');
-        bubble.innerHTML =
-          `<div class="text-sm">${escapeHtml(text)}</div>` +
-          (meta ? `<div class="text-xs mt-1 text-slate-500 italic">${escapeHtml(meta)}</div>` : '');
-        outer.appendChild(bubble);
-        chatBox.appendChild(outer);
+        bubble.classList.add('bubble', isUser ? 'user' : 'ai');
+        bubble.textContent = text;
+
+        const badge = document.createElement('div');
+        badge.classList.add('badge', isUser ? 'user' : 'ai');
+        badge.textContent = isUser ? 'USER' : `Advisor: ${advisorName}`;
+        bubble.appendChild(badge);
+
+        container.appendChild(bubble);
+        return container;
+      }
+
+      function addMessageToChat(text, isUser, advisorName = '') {
+        const bubble = createChatBubble(text, isUser, advisorName);
+        chatBox.appendChild(bubble);
         chatBox.scrollTop = chatBox.scrollHeight;
       }
 
-      function escapeHtml(s) {
-        return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      // Show samples for selected advisor
+      function renderSamples(advisor) {
+        samplesEl.innerHTML = '';
+        if (!(advisor in SAMPLE_PROMPTS)) return;
+        for (const prompt of SAMPLE_PROMPTS[advisor]) {
+          const btn = document.createElement('button');
+          btn.textContent = prompt;
+          btn.className = 'px-3 py-1 border rounded bg-white hover:bg-blue-50 text-xs';
+          btn.addEventListener('click', () => {
+            input.value = prompt;
+            input.focus();
+          });
+          samplesEl.appendChild(btn);
+        }
       }
 
-      // When prompt unknown: open modal to let user type assistant's reply and save it
-      function openRespModal(key, adv, prompt) {
-        pendingKey = key;
+      // Show modal list of all pairs
+      function showModal() {
+        pairsList.innerHTML = '';
+        const entries = Object.entries(DB);
+        if (entries.length === 0) {
+          pairsList.textContent = 'No stored prompt → response pairs.';
+        } else {
+          for (const [key, response] of entries) {
+            const [prompt, advisor] = key.split('|');
+            const div = document.createElement('div');
+            div.innerHTML = `<strong>${advisor}</strong><br><em>${prompt}</em><br>${response}`;
+            div.classList.add('mb-3', 'p-2', 'border', 'rounded', 'bg-white', 'shadow-sm');
+            pairsList.appendChild(div);
+          }
+        }
+        modal.classList.remove('hidden');
+      }
+
+      function closeModalFunc() {
+        modal.classList.add('hidden');
+      }
+
+      // Show the add-response modal for unknown prompt
+      let currentUnknownPrompt = '';
+      let currentUnknownAdvisor = '';
+      function showResponseModal(prompt, advisor) {
+        currentUnknownPrompt = prompt;
+        currentUnknownAdvisor = advisor;
         respInput.value = '';
-        respMeta.textContent = `Advisor: ${adv} — Prompt: "${prompt}"`;
+        respMeta.textContent = `Prompt: "${prompt}" — Advisor: ${advisor}`;
         respModal.classList.remove('hidden');
-        respModal.classList.add('flex');
         respInput.focus();
       }
 
-      respCancel.addEventListener('click', () => {
-        pendingKey = null;
+      function closeResponseModal() {
         respModal.classList.add('hidden');
-        respModal.classList.remove('flex');
-      });
-
-      respSave.addEventListener('click', () => {
-        if (!pendingKey) return;
-        const v = respInput.value.trim();
-        if (!v) {
-          alert('Please type a response to save.');
-          respInput.focus();
-          return;
-        }
-        DB[pendingKey] = v;
-        saveDB();
-        // show saved response in chat
-        const [adv, prompt] = pendingKey.split('||');
-        showMessage('ai', v, adv + ' (manually saved)');
-        pendingKey = null;
-        respModal.classList.add('hidden');
-        respModal.classList.remove('flex');
-      });
-
-      async function send() {
-        const prompt = input.value.trim();
-        if (!prompt) return;
-        const adv = advisorSel.value;
-        const key = adv + '||' + prompt;
-        showMessage('user', prompt, adv);
-        input.value = '';
-        statusEl.textContent = 'Checking KB...';
-        sendBtn.disabled = true;
-
-        // Update session analytics data
-        sessionQueries++;
-        sessionPrompts.push({ prompt, advisor: adv });
-        sessionAdvisorsUsed.add(adv);
-
-        updateAnalytics();
-
-        if (DB[key]) {
-          // known — return stored answer
-          await new Promise(r => setTimeout(r, 200)); // small delay for UX
-          showMessage('ai', DB[key], adv + ' (from KB)');
-        } else {
-          // unknown — ask the user to provide the assistant reply
-          await new Promise(r => setTimeout(r, 200));
-          openRespModal(key, adv, prompt);
-        }
-
-        statusEl.textContent = '';
-        sendBtn.disabled = false;
+        currentUnknownPrompt = '';
+        currentUnknownAdvisor = '';
       }
 
-      // Export DB as JSON file
-      exportBtn.addEventListener('click', () => {
-        const data = JSON.stringify(DB, null, 2);
-        const blob = new Blob([data], { type: 'application/json' });
+      // Handle prompt submit
+      function handleSubmit() {
+        const prompt = input.value.trim();
+        if (!prompt) return;
+        const advisor = advisorSel.value;
+        input.value = '';
+        addMessageToChat(prompt, true);
+
+        sessionQueries++;
+        sessionPrompts.push(prompt);
+        sessionAdvisorsUsed.add(advisor);
+        updateStats();
+
+        // Check if prompt exists in DB
+        const key = `${prompt}|${advisor}`;
+        if (DB[key]) {
+          // Show stored answer immediately
+          setTimeout(() => {
+            addMessageToChat(DB[key], false, advisor);
+          }, 250);
+          statusEl.textContent = 'Response retrieved from local DB.';
+        } else {
+          // Ask user to add answer manually
+          statusEl.textContent = 'Prompt not found — please add a response.';
+          showResponseModal(prompt, advisor);
+        }
+      }
+
+      // Save new response from modal input
+      function saveResponse() {
+        const response = respInput.value.trim();
+        if (!response) {
+          alert('Please enter a response before saving.');
+          return;
+        }
+        const key = `${currentUnknownPrompt}|${currentUnknownAdvisor}`;
+        DB[key] = response;
+        saveDB();
+        closeResponseModal();
+        addMessageToChat(response, false, currentUnknownAdvisor);
+        statusEl.textContent = 'Response saved locally.';
+        updateStats();
+      }
+
+      // Export DB as JSON download
+      function exportDB() {
+        const dataStr = JSON.stringify(DB, null, 2);
+        const blob = new Blob([dataStr], {type: 'application/json'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'careeros_pairs.json';
+        a.download = `careeros_kb_${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
         URL.revokeObjectURL(url);
-      });
+        statusEl.textContent = 'KB exported as JSON file.';
+      }
 
-      // Clear DB
-      clearDBBtn.addEventListener('click', () => {
-        if (!confirm('Clear stored prompt-response DB?')) return;
-        DB = {};
-        saveDB();
-        chatBox.innerHTML = '';
-        alert('DB cleared.');
-      });
-
-      // Show all stored pairs
-      showAllBtn.addEventListener('click', () => {
-        pairsList.innerHTML = '';
-        const keys = Object.keys(DB).sort();
-        if (!keys.length) {
-          pairsList.textContent = 'No pairs stored yet.';
-          modal.classList.remove('hidden');
-          modal.classList.add('flex');
-          return;
+      // Clear the local DB with confirmation
+      function clearDB() {
+        if (confirm('Are you sure you want to clear the entire local knowledge base?')) {
+          DB = {};
+          saveDB();
+          updateStats();
+          statusEl.textContent = 'Local knowledge base cleared.';
+          chatBox.innerHTML = '';
         }
-        keys.forEach(k => {
-          const [adv, prompt] = k.split('||');
-          const div = document.createElement('div');
-          div.className = 'p-3 border rounded bg-white shadow-sm';
-          div.innerHTML = `<div class="text-xs text-slate-500">${escapeHtml(adv)}</div>
-                           <div class="font-medium text-slate-900 my-1">${escapeHtml(prompt)}</div>
-                           <div class="text-sm text-slate-700 mt-1 whitespace-pre-wrap">${escapeHtml(DB[k])}</div>
-                           <div class="mt-3 text-right flex justify-end gap-2">
-                             <button class="load btn text-xs px-3 py-1 border rounded hover:bg-blue-50 transition" type="button">Use</button>
-                             <button class="del btn text-xs px-3 py-1 border rounded hover:bg-red-50 transition" type="button">Delete</button>
-                           </div>`;
-          div.querySelector('.load').onclick = () => {
-            input.value = prompt;
-            input.focus();
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-          };
-          div.querySelector('.del').onclick = () => {
-            if (!confirm('Delete this pair?')) return;
-            delete DB[k];
-            saveDB();
-            div.remove();
-          };
-          pairsList.appendChild(div);
+      }
+
+      // Suggest a random sample prompt for current advisor
+      function suggestSample() {
+        const advisor = advisorSel.value;
+        if (!(advisor in SAMPLE_PROMPTS)) return;
+        const samples = SAMPLE_PROMPTS[advisor];
+        if (!samples.length) return;
+        const prompt = samples[Math.floor(Math.random() * samples.length)];
+        input.value = prompt;
+        input.focus();
+      }
+
+      // Initialize the page
+      function init() {
+        updateStats();
+        renderSamples(advisorSel.value);
+        advisorLabel.textContent = `Advisor: ${advisorSel.value}`;
+
+        advisorSel.addEventListener('change', () => {
+          renderSamples(advisorSel.value);
+          advisorLabel.textContent = `Advisor: ${advisorSel.value}`;
+          input.focus();
         });
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-      });
 
-      closeModal.addEventListener('click', () => {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-      });
+        sendBtn.addEventListener('click', handleSubmit);
+        input.addEventListener('keydown', e => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSubmit();
+          }
+        });
 
-      // Suggest sample prompts
-      suggestBtn.addEventListener('click', renderSamples);
+        exportBtn.addEventListener('click', exportDB);
+        clearDBBtn.addEventListener('click', clearDB);
+        showAllBtn.addEventListener('click', showModal);
+        closeModal.addEventListener('click', closeModalFunc);
+        suggestBtn.addEventListener('click', suggestSample);
 
-      // Enter to send
-      input.addEventListener('keydown', e => {
-        if (e.key === 'Enter') send();
-      });
-      sendBtn.addEventListener('click', send);
-      advisorSel.addEventListener('change', renderSamples);
+        respSave.addEventListener('click', saveResponse);
+        respCancel.addEventListener('click', () => {
+          closeResponseModal();
+          statusEl.textContent = 'Response entry canceled.';
+        });
+      }
 
-      // Initial render
-      renderSamples();
-      updateStats();
-      updateAnalytics();
-
-      // Debug helper (optional): window.__careeros_getDB()
-      window.__careeros_getDB = () => JSON.parse(localStorage.getItem(KEY) || '{}');
+      // Run init on DOM ready
+      window.addEventListener('load', init);
     })();
   </script>
 </body>
