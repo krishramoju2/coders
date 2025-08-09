@@ -10,6 +10,8 @@
   .msg-user{ text-align:right } .msg-ai{ text-align:left }
   body { -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
   @media (max-width:640px){ .md\:flex-1{ width:100% } .md\:flex{ flex-direction:column } }
+  /* New style for analytics panel */
+  #analyticsPanel div { margin-bottom: 0.5rem; }
 </style>
 </head>
 <body class="antialiased bg-slate-50 text-slate-900">
@@ -24,7 +26,6 @@
           <option>Career Path</option>
           <option>Upskilling Guide</option>
           <option>College Abroad</option>
-          <option>Data Analytics</option>
         </select>
         <button id="export" class="px-2 py-1 border rounded text-sm">Export JSON</button>
         <button id="clearDB" class="px-2 py-1 border rounded text-sm">Clear DB</button>
@@ -63,7 +64,19 @@
           <button id="suggest" class="px-2 py-1 border rounded text-sm">Suggest sample prompts</button>
         </div>
         <hr class="my-3" />
-        <div class="text-xs text-slate-500">This version stores answers locally. When a prompt is unknown you'll be asked to type the assistant's reply and save it into the KB.</div>
+
+        <!-- NEW Data Analytics panel -->
+        <h3 class="font-medium mb-2">Data Analytics</h3>
+        <div id="analyticsPanel" class="text-sm text-slate-700">
+          <div>Total queries this session: <strong id="totalQueries">0</strong></div>
+          <div>Average prompt length: <strong id="avgPromptLength">0</strong> characters</div>
+          <div>Most frequent prompt: <strong id="mostFreqPrompt">N/A</strong></div>
+          <div>Number of distinct advisors used: <strong id="distinctAdvisors">0</strong></div>
+          <div>Prompts by advisor:</div>
+          <ul id="promptsByAdvisor" class="list-disc list-inside text-xs"></ul>
+        </div>
+
+        <div class="text-xs text-slate-500 mt-3">This version stores answers locally. When a prompt is unknown you'll be asked to type the assistant's reply and save it into the KB.</div>
       </aside>
     </main>
   </div>
@@ -98,6 +111,11 @@
   const KEY = 'careeros_pairs_v1';
   let DB = JSON.parse(localStorage.getItem(KEY) || '{}');
 
+  // New runtime tracking variables
+  let sessionQueries = 0;
+  const sessionPrompts = [];
+  const sessionAdvisorsUsed = new Set();
+
   const advisorSel = document.getElementById('advisor');
   const samplesEl = document.getElementById('samples');
   const chatBox = document.getElementById('chatBox');
@@ -119,6 +137,13 @@
   const respMeta = document.getElementById('respMeta');
   const respSave = document.getElementById('respSave');
   const respCancel = document.getElementById('respCancel');
+
+  // Analytics DOM elements
+  const totalQueriesEl = document.getElementById('totalQueries');
+  const avgPromptLengthEl = document.getElementById('avgPromptLength');
+  const mostFreqPromptEl = document.getElementById('mostFreqPrompt');
+  const distinctAdvisorsEl = document.getElementById('distinctAdvisors');
+  const promptsByAdvisorEl = document.getElementById('promptsByAdvisor');
 
   const SAMPLE_PROMPTS = {
     "Resume Builder": [
@@ -180,32 +205,63 @@
       "Scholarship opportunities for Indian students.",
       "Differences between MS in USA and Europe.",
       "How to find accommodation as an international student."
-    ],
-    "Data Analytics": [
-      "Explain the difference between descriptive and inferential analytics.",
-      "How to clean large datasets efficiently?",
-      "Best practices for data visualization in dashboards.",
-      "How to choose the right KPIs for business analytics?",
-      "Explain how to perform time series analysis using Python.",
-      "What are common pitfalls in predictive modeling?",
-      "Steps to build a data pipeline from scratch.",
-      "How to use SQL to optimize data extraction queries?",
-      "What tools are best for real-time data analytics?",
-      "Explain A/B testing and its applications in product decisions.",
-      "How to interpret correlation vs causation in data?",
-      "Methods for handling missing data in datasets.",
-      "Guide to feature engineering for machine learning.",
-      "Explain clustering algorithms with examples.",
-      "How to explain analytics results to non-technical stakeholders?",
-      "Importance of data ethics and privacy in analytics.",
-      "How to automate report generation using Python scripts?",
-      "What is the role of data governance in organizations?",
-      "Steps to validate a predictive model’s accuracy.",
-      "Best resources to learn advanced analytics techniques."
     ]
   };
 
   let pendingKey = null; // holds adv||prompt when waiting for manual response
+
+  // Helper: update analytics panel
+  function updateAnalytics() {
+    totalQueriesEl.textContent = sessionQueries;
+
+    if(sessionQueries === 0) {
+      avgPromptLengthEl.textContent = '0';
+      mostFreqPromptEl.textContent = 'N/A';
+      distinctAdvisorsEl.textContent = '0';
+      promptsByAdvisorEl.innerHTML = '<li>N/A</li>';
+      return;
+    }
+
+    // Average prompt length
+    let totalLength = sessionPrompts.reduce((sum, p) => sum + p.prompt.length, 0);
+    avgPromptLengthEl.textContent = (totalLength / sessionQueries).toFixed(1);
+
+    // Most frequent prompt (session)
+    const freqMap = {};
+    sessionPrompts.forEach(({prompt}) => {
+      freqMap[prompt] = (freqMap[prompt]||0) + 1;
+    });
+    let mostFreq = null;
+    let maxCount = 0;
+    for(const p in freqMap) {
+      if(freqMap[p] > maxCount) {
+        mostFreq = p;
+        maxCount = freqMap[p];
+      }
+    }
+    mostFreqPromptEl.textContent = mostFreq ? `${mostFreq} (${maxCount} times)` : 'N/A';
+
+    // Distinct advisors used in session
+    distinctAdvisorsEl.textContent = sessionAdvisorsUsed.size;
+
+    // Prompts count by advisor
+    const advisorCount = {};
+    sessionPrompts.forEach(({advisor}) => {
+      advisorCount[advisor] = (advisorCount[advisor]||0) + 1;
+    });
+
+    // Clear and populate list
+    promptsByAdvisorEl.innerHTML = '';
+    if(Object.keys(advisorCount).length === 0){
+      promptsByAdvisorEl.innerHTML = '<li>N/A</li>';
+    } else {
+      for(const adv in advisorCount) {
+        const li = document.createElement('li');
+        li.textContent = `${adv}: ${advisorCount[adv]} prompt${advisorCount[adv] > 1 ? 's' : ''}`;
+        promptsByAdvisorEl.appendChild(li);
+      }
+    }
+  }
 
   function saveDB(){ localStorage.setItem(KEY, JSON.stringify(DB)); updateStats(); }
   function updateStats(){
@@ -278,6 +334,13 @@
     input.value = '';
     statusEl.textContent = 'Checking KB...';
     sendBtn.disabled = true;
+
+    // Update session analytics data
+    sessionQueries++;
+    sessionPrompts.push({prompt, advisor: adv});
+    sessionAdvisorsUsed.add(adv);
+
+    updateAnalytics();
 
     if(DB[key]){
       // known — return stored answer
@@ -353,6 +416,7 @@
   // initial render
   renderSamples();
   updateStats();
+  updateAnalytics();
 
   // Debug helper (optional): window.__careeros_getDB()
   window.__careeros_getDB = ()=> JSON.parse(localStorage.getItem(KEY) || '{}');
